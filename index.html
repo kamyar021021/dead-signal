@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DEAD SIGNAL — Survivor</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { width:100%; height:100%; overflow:hidden; font-family:'Courier New',monospace; background:#1a1020; color:#fff; user-select:none; -webkit-user-select:none; touch-action:none; }
+canvas { display:block; touch-action:none; }
+
+#hud { position:fixed; inset:0; pointer-events:none; z-index:10; }
+#health-container { position:absolute; bottom:calc(20px + env(safe-area-inset-bottom)); left:calc(20px + env(safe-area-inset-left)); width:min(260px,42vw); }
+#health-label { font-size:10px; letter-spacing:2px; color:#ff4444; margin-bottom:5px; text-transform:uppercase; }
+#health-bar-bg { width:100%; height:14px; background:rgba(0,0,0,0.6); border:1px solid #666; border-radius:3px; overflow:hidden; }
+#health-bar { height:100%; width:100%; background:linear-gradient(90deg,#ff2222,#ff6600); transition:width 0.2s; }
+#health-bar.low { animation:pulse-red 0.8s infinite; }
+@keyframes pulse-red { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+
+#ammo-display { position:absolute; bottom:calc(20px + env(safe-area-inset-bottom)); right:calc(20px + env(safe-area-inset-right)); text-align:right; }
+#weapon-name { font-size:10px; letter-spacing:2px; color:#ffaa44; text-transform:uppercase; margin-bottom:4px; font-weight:bold; }
+#ammo-current { font-size:clamp(28px,6vw,44px); font-weight:bold; line-height:1; text-shadow:0 0 10px rgba(255,255,255,0.3); }
+#ammo-reserve { font-size:clamp(12px,3vw,18px); color:#aaa; }
+#weapon-slots { display:flex; gap:4px; margin-top:6px; justify-content:flex-end; }
+.wslot { font-size:9px; padding:2px 6px; border:1px solid #444; border-radius:3px; color:#888; }
+.wslot.active { border-color:#ff4444; color:#ff4444; background:rgba(255,68,68,0.15); }
+
+#wave-info { position:absolute; top:calc(20px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); text-align:center; }
+#wave-number { font-size:12px; letter-spacing:3px; color:#ffaa44; text-transform:uppercase; }
+#wave-progress { width:min(200px,50vw); height:4px; background:rgba(255,255,255,0.15); margin-top:6px; border-radius:2px; overflow:hidden; }
+#wave-progress-fill { height:100%; width:0%; background:#ffaa44; transition:width 0.3s; }
+
+#kill-counter { position:absolute; top:calc(20px + env(safe-area-inset-top)); right:calc(20px + env(safe-area-inset-right)); text-align:right; }
+#kill-count { font-size:26px; font-weight:bold; }
+.kill-label { font-size:9px; letter-spacing:2px; color:#aaa; text-transform:uppercase; }
+#score-display { font-size:14px; color:#ffaa44; margin-top:4px; }
+
+#mode-indicator { position:absolute; top:calc(60px + env(safe-area-inset-top)); left:calc(20px + env(safe-area-inset-left)); font-size:10px; letter-spacing:2px; color:#ccc; text-transform:uppercase; padding:4px 10px; border:1px solid #666; border-radius:12px; background:rgba(0,0,0,0.4); }
+
+#minimap-wrap { position:absolute; top:calc(60px + env(safe-area-inset-top)); right:calc(20px + env(safe-area-inset-right)); width:130px; height:130px; border:1px solid #555; border-radius:8px; background:rgba(10,8,15,0.75); overflow:hidden; }
+#minimap { width:100%; height:100%; display:block; }
+
+#combo-display { position:absolute; top:50%; right:calc(30px + env(safe-area-inset-right)); transform:translateY(-50%); text-align:right; opacity:0; transition:opacity 0.3s; }
+#combo-display.active { opacity:1; }
+#combo-mult { font-size:42px; font-weight:bold; color:#ffaa44; text-shadow:0 0 20px rgba(255,170,68,0.7); line-height:1; }
+#combo-label { font-size:10px; letter-spacing:3px; color:#aaa; text-transform:uppercase; }
+
+#notifications { position:absolute; top:22%; left:50%; transform:translateX(-50%); text-align:center; width:100%; }
+.notif { font-size:clamp(16px,4vw,22px); letter-spacing:3px; text-transform:uppercase; animation:notif-appear 2.8s forwards; margin-bottom:8px; }
+@keyframes notif-appear { 0% { opacity:0; transform:scale(0.5); } 15% { opacity:1; transform:scale(1.1); } 25% { transform:scale(1); } 80% { opacity:1; } 100% { opacity:0; } }
+
+#damage-numbers { position:fixed; inset:0; pointer-events:none; z-index:8; overflow:hidden; }
+.dmg-num { position:absolute; font-size:18px; font-weight:bold; color:#ffdd44; text-shadow:0 0 6px #000, 0 0 10px #ff4400; animation:dmg-float 0.9s ease-out forwards; }
+.dmg-num.crit { color:#ff44aa; font-size:24px; }
+.dmg-num.heal { color:#44ff88; }
+@keyframes dmg-float { 0% { transform:translate(-50%,0) scale(0.7); opacity:1; } 100% { transform:translate(-50%,-50px) scale(1.1); opacity:0; } }
+
+#damage-overlay { position:fixed; inset:0; background:radial-gradient(ellipse at center, transparent 40%, rgba(255,0,0,0.5) 100%); opacity:0; transition:opacity 0.3s; pointer-events:none; z-index:5; }
+
+#reload-indicator { position:absolute; bottom:calc(110px + env(safe-area-inset-bottom)); right:calc(20px + env(safe-area-inset-right)); font-size:12px; letter-spacing:2px; color:#ffaa00; text-transform:uppercase; opacity:0; transition:opacity 0.2s; }
+#reload-indicator.active { opacity:1; animation:blink 0.5s infinite; }
+@keyframes blink { 50% { opacity:0.3; } }
+
+#ability-bar { position:absolute; bottom:calc(70px + env(safe-area-inset-bottom)); left:calc(20px + env(safe-area-inset-left)); display:flex; gap:10px; }
+.ability { width:52px; height:52px; border:2px solid #666; border-radius:8px; background:rgba(0,0,0,0.5); position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; font-size:20px; }
+.ability .cd-fill { position:absolute; inset:0; background:rgba(0,0,0,0.75); transform-origin:bottom; }
+.ability .count { position:absolute; bottom:2px; right:4px; font-size:10px; color:#fff; font-weight:bold; }
+.ability.ready { border-color:#44ff88; box-shadow:0 0 10px rgba(68,255,136,0.4); }
+
+#boss-bar-wrap { position:absolute; top:calc(90px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); width:min(500px,80vw); display:none; }
+#boss-bar-wrap.active { display:block; }
+#boss-name { font-size:12px; letter-spacing:3px; color:#ff4444; text-align:center; margin-bottom:4px; text-transform:uppercase; text-shadow:0 0 10px rgba(255,0,0,0.8); }
+#boss-bar-bg { width:100%; height:16px; background:rgba(0,0,0,0.7); border:2px solid #ff4444; border-radius:4px; overflow:hidden; }
+#boss-bar { height:100%; width:100%; background:linear-gradient(90deg,#aa0000,#ff2222,#ff6600); transition:width 0.2s; }
+
+#hint { position:fixed; bottom:calc(20px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); font-size:11px; color:#aaa; letter-spacing:2px; text-align:center; z-index:15; pointer-events:none; opacity:0; transition:opacity 0.5s; }
+#hint.show { opacity:1; }
+
+#touch-controls { position:fixed; inset:0; pointer-events:none; z-index:20; display:none; }
+#touch-controls.active { display:block; }
+.joystick { position:absolute; width:140px; height:140px; border-radius:50%; background:rgba(255,255,255,0.1); border:2px solid rgba(255,255,255,0.3); pointer-events:none; opacity:0; transition:opacity 0.15s; }
+.joystick.active { opacity:1; }
+.joystick .knob { position:absolute; width:60px; height:60px; border-radius:50%; background:rgba(255,255,255,0.4); border:2px solid rgba(255,255,255,0.7); left:50%; top:50%; transform:translate(-50%,-50%); }
+
+#mobile-buttons { position:fixed; inset:0; pointer-events:none; z-index:21; display:none; }
+#mobile-buttons.active { display:block; }
+.mob-btn { position:absolute; width:70px; height:70px; border-radius:50%; background:rgba(255,255,255,0.15); border:2px solid rgba(255,255,255,0.35); color:#fff; font-size:14px; display:flex; align-items:center; justify-content:center; pointer-events:auto; font-family:inherit; letter-spacing:1px; text-transform:uppercase; touch-action:none; }
+.mob-btn:active { background:rgba(255,255,255,0.35); }
+#btn-dash { bottom:calc(260px + env(safe-area-inset-bottom)); right:calc(20px + env(safe-area-inset-right)); background:rgba(68,200,255,0.2); }
+#btn-grenade { bottom:calc(180px + env(safe-area-inset-bottom)); right:calc(105px + env(safe-area-inset-right)); background:rgba(255,120,68,0.2); }
+#btn-reload { bottom:calc(180px + env(safe-area-inset-bottom)); right:calc(20px + env(safe-area-inset-right)); }
+
+.screen { position:fixed; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; background:rgba(15,10,25,0.96); z-index:100; padding:24px; overflow-y:auto; text-align:center; }
+.screen.hidden { display:none !important; }
+.screen h1 { font-size:clamp(32px,8vw,56px); letter-spacing:6px; color:#ff4444; text-shadow:0 0 30px rgba(255,0,0,0.6); margin-bottom:8px; }
+.screen h2 { font-size:clamp(11px,2.5vw,14px); letter-spacing:4px; color:#aaa; font-weight:normal; margin-bottom:32px; }
+.screen h3 { font-size:16px; letter-spacing:3px; color:#ffaa44; margin-bottom:20px; text-transform:uppercase; }
+.menu-buttons { display:flex; flex-direction:column; gap:14px; width:min(320px,90%); }
+.btn { padding:14px 40px; font-size:14px; letter-spacing:3px; font-family:inherit; color:#fff; background:transparent; border:2px solid #ff4444; cursor:pointer; transition:all 0.25s; text-transform:uppercase; }
+.btn:hover, .btn:active { background:#ff4444; box-shadow:0 0 25px rgba(255,68,68,0.5); }
+.btn.secondary { border-color:#666; }
+.btn.secondary:hover, .btn.secondary:active { background:#333; }
+
+.mode-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; width:min(500px,95%); margin-bottom:30px; }
+.mode-card { padding:24px 16px; background:rgba(255,255,255,0.04); border:3px solid #444; border-radius:12px; cursor:pointer; transition:all 0.25s; text-align:center; }
+.mode-card:hover { border-color:#888; transform:translateY(-3px); }
+.mode-card.selected { border-color:#ff4444; background:rgba(255,68,68,0.12); box-shadow:0 0 25px rgba(255,68,68,0.35); }
+.mode-icon { font-size:48px; margin-bottom:12px; display:block; }
+.mode-name { font-size:16px; letter-spacing:3px; margin-bottom:6px; text-transform:uppercase; font-weight:bold; }
+.mode-desc { font-size:11px; color:#aaa; line-height:1.6; }
+
+.char-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:14px; width:min(600px,95%); margin-bottom:24px; }
+.char-card { padding:14px 10px; background:rgba(255,255,255,0.04); border:2px solid #444; border-radius:8px; cursor:pointer; transition:all 0.25s; }
+.char-card:hover { border-color:#888; }
+.char-card.selected { border-color:#ff4444; background:rgba(255,68,68,0.15); box-shadow:0 0 20px rgba(255,68,68,0.3); }
+.char-canvas { width:80px; height:100px; margin:0 auto 8px; display:block; }
+.char-name { font-size:13px; letter-spacing:2px; margin-bottom:6px; text-transform:uppercase; }
+.char-desc { font-size:10px; color:#aaa; line-height:1.5; }
+.char-stats { display:flex; justify-content:center; gap:6px; margin-top:6px; font-size:9px; color:#bbb; }
+
+.settings-list { display:flex; flex-direction:column; gap:16px; width:min(400px,95%); margin-bottom:24px; }
+.setting-row { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:rgba(255,255,255,0.04); border:1px solid #444; border-radius:6px; }
+.setting-row label { font-size:12px; letter-spacing:1px; color:#ddd; text-transform:uppercase; }
+.setting-row input[type="range"] { width:140px; accent-color:#ff4444; }
+.setting-row select { background:#1a1020; color:#fff; border:1px solid #555; padding:6px 10px; font-family:inherit; font-size:12px; border-radius:4px; }
+.setting-row .toggle { width:44px; height:24px; background:#444; border-radius:12px; position:relative; cursor:pointer; transition:background 0.2s; }
+.setting-row .toggle.on { background:#ff4444; }
+.setting-row .toggle::after { content:''; position:absolute; width:18px; height:18px; background:#fff; border-radius:50%; top:3px; left:3px; transition:left 0.2s; }
+.setting-row .toggle.on::after { left:23px; }
+
+/* Upgrade screen */
+#upgrade-screen { background:rgba(10,6,18,0.97); }
+.upgrade-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; width:min(720px,95%); margin-bottom:20px; }
+.upgrade-card { padding:20px 12px; background:linear-gradient(145deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02)); border:2px solid #555; border-radius:12px; cursor:pointer; transition:all 0.25s; text-align:center; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.upgrade-card:hover { border-color:#ffaa44; transform:translateY(-4px); box-shadow:0 0 20px rgba(255,170,68,0.3); }
+.upgrade-card.rarity-1 { border-color:#666; }
+.upgrade-card.rarity-2 { border-color:#44aaff; }
+.upgrade-card.rarity-3 { border-color:#aa44ff; }
+.upgrade-card.rarity-4 { border-color:#ffaa00; }
+.upgrade-icon { font-size:44px; margin-bottom:10px; }
+.upgrade-name { font-size:14px; letter-spacing:2px; margin-bottom:6px; text-transform:uppercase; font-weight:bold; color:#fff; }
+.upgrade-desc { font-size:11px; color:#aaa; line-height:1.5; }
+@media (max-width:640px) {
+  .upgrade-cards { grid-template-columns:1fr; }
+  .upgrade-card { min-height:auto; padding:14px; }
+  .upgrade-icon { font-size:32px; margin-bottom:6px; }
+}
+
+#loading { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#1a1020; z-index:200; color:#888; font-size:14px; letter-spacing:4px; text-transform:uppercase; }
+#loading.hidden { display:none; }
+</style>
+</head>
+<body>
+
+<div id="loading">LOADING...</div>
+
+<div id="hud" style="display:none">
+  <div id="health-container">
+    <div id="health-label">HEALTH</div>
+    <div id="health-bar-bg"><div id="health-bar"></div></div>
+  </div>
+
+  <div id="ability-bar">
+    <div class="ability ready" id="ab-dash"><div class="cd-fill" id="dash-cd-fill"></div>💨</div>
+    <div class="ability ready" id="ab-grenade"><div class="cd-fill" id="grenade-cd-fill"></div>💣<span class="count" id="grenade-count">2</span></div>
+  </div>
+
+  <div id="ammo-display">
+    <div id="weapon-name">M1911 PISTOL</div>
+    <div><span id="ammo-current">7</span><span id="ammo-reserve"> / 999</span></div>
+    <div id="weapon-slots"></div>
+  </div>
+
+  <div id="wave-info">
+    <div id="wave-number">WAVE 1</div>
+    <div id="wave-progress"><div id="wave-progress-fill"></div></div>
+  </div>
+
+  <div id="kill-counter">
+    <div id="kill-count">0</div>
+    <div class="kill-label">KILLS</div>
+    <div id="score-display">0</div>
+  </div>
+
+  <div id="mode-indicator">☀ DAY</div>
+
+  <div id="minimap-wrap"><canvas id="minimap" width="260" height="260"></canvas></div>
+
+  <div id="combo-display">
+    <div id="combo-mult">x1.0</div>
+    <div id="combo-label">COMBO</div>
+  </div>
+
+  <div id="notifications"></div>
+  <div id="reload-indicator">RELOADING...</div>
+
+  <div id="boss-bar-wrap">
+    <div id="boss-name">BOSS</div>
+    <div id="boss-bar-bg"><div id="boss-bar"></div></div>
+  </div>
+</div>
+
+<div id="damage-numbers"></div>
+<div id="damage-overlay"></div>
+<div id="hint"></div>
+
+<div id="touch-controls">
+  <div class="joystick" id="move-joy"><div class="knob"></div></div>
+</div>
+<div id="mobile-buttons">
+  <button class="mob-btn" id="btn-reload">R</button>
+  <button class="mob-btn" id="btn-grenade">💣</button>
+  <button class="mob-btn" id="btn-dash">💨</button>
+</div>
+
+<div id="start-screen" class="screen">
+  <h1>DEAD SIGNAL</h1>
+  <h2>SURVIVOR</h2>
+  <div class="menu-buttons">
+    <button class="btn" id="play-btn">شروع بازی</button>
+    <button class="btn secondary" id="chars-btn">انتخاب کاراکتر</button>
+    <button class="btn secondary" id="settings-btn">تنظیمات</button>
+  </div>
+</div>
+
+<div id="mode-screen" class="screen hidden">
+  <h3>حالت بازی</h3>
+  <div class="mode-grid">
+    <div class="mode-card" data-mode="day">
+      <span class="mode-icon">☀️</span>
+      <div class="mode-name">روز</div>
+      <div class="mode-desc">روشن و آفتابی<br>بدون چراغ‌قوه<br>دید کامل</div>
+    </div>
+    <div class="mode-card" data-mode="night">
+      <span class="mode-icon">🌙</span>
+      <div class="mode-name">شب</div>
+      <div class="mode-desc">تاریک ولی قابل دید<br>با چراغ‌قوه<br>اتمسفر ترسناک</div>
+    </div>
+  </div>
+  <h3 style="margin-top:20px">درجه سختی</h3>
+  <div class="mode-grid" style="grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:30px">
+    <div class="mode-card diff-card" data-diff="easy"><span class="mode-icon" style="font-size:32px">🌱</span><div class="mode-name" style="font-size:13px">آسان</div></div>
+    <div class="mode-card diff-card selected" data-diff="normal"><span class="mode-icon" style="font-size:32px">⚔️</span><div class="mode-name" style="font-size:13px">معمولی</div></div>
+    <div class="mode-card diff-card" data-diff="hard"><span class="mode-icon" style="font-size:32px">💀</span><div class="mode-name" style="font-size:13px">سخت</div></div>
+    <div class="mode-card diff-card" data-diff="nightmare"><span class="mode-icon" style="font-size:32px">🔥</span><div class="mode-name" style="font-size:13px">کابوس</div></div>
+  </div>
+  <button class="btn" id="mode-back-btn">بازگشت</button>
+</div>
+
+<div id="chars-screen" class="screen hidden">
+  <h3>انتخاب کاراکتر</h3>
+  <div class="char-grid" id="char-grid"></div>
+  <button class="btn" id="chars-back-btn">تایید و بازگشت</button>
+</div>
+
+<div id="settings-screen" class="screen hidden">
+  <h3>تنظیمات</h3>
+  <div class="settings-list">
+    <div class="setting-row"><label>کیفیت گرافیک</label>
+      <select id="set-quality"><option value="low">پایین</option><option value="medium" selected>متوسط</option><option value="high">بالا</option></select></div>
+    <div class="setting-row"><label>صدا</label><input type="range" id="set-sfx" min="0" max="100" value="70"></div>
+    <div class="setting-row"><label>لرزش دوربین</label><div class="toggle on" id="set-shake"></div></div>
+    <div class="setting-row"><label>کنترل لمسی</label>
+      <select id="set-touch"><option value="auto" selected>خودکار</option><option value="on">روشن</option><option value="off">خاموش</option></select></div>
+  </div>
+  <button class="btn" id="settings-back-btn">بازگشت</button>
+</div>
+
+<div id="upgrade-screen" class="screen hidden">
+  <h3>🎁 آپگرید انتخاب کن</h3>
+  <p style="color:#aaa;margin-bottom:20px;font-size:12px">یکی از کارت‌ها رو انتخاب کن تا برای همیشه اعمال بشه</p>
+  <div class="upgrade-cards" id="upgrade-cards"></div>
+</div>
+
+<div id="gameover-screen" class="screen hidden">
+  <h1>YOU DIED</h1>
+  <h2>بازی تمام شد</h2>
+  <p id="gameover-stats" style="font-size:14px; color:#aaa; line-height:2; margin-bottom:30px;"></p>
+  <div class="menu-buttons">
+    <button class="btn" id="restart-btn">دوباره</button>
+    <button class="btn secondary" id="menu-btn">منوی اصلی</button>
+  </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

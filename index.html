@@ -61,12 +61,6 @@ canvas { display:block; touch-action:none; }
 #reload-indicator.active { opacity:1; animation:blink 0.5s infinite; }
 @keyframes blink { 50% { opacity:0.3; } }
 
-#ability-bar { position:absolute; bottom:calc(70px + env(safe-area-inset-bottom)); left:calc(20px + env(safe-area-inset-left)); display:flex; gap:10px; }
-.ability { width:52px; height:52px; border:2px solid #666; border-radius:8px; background:rgba(0,0,0,0.5); position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; font-size:20px; }
-.ability .cd-fill { position:absolute; inset:0; background:rgba(0,0,0,0.75); transform-origin:bottom; }
-.ability .count { position:absolute; bottom:2px; right:4px; font-size:10px; color:#fff; font-weight:bold; }
-.ability.ready { border-color:#44ff88; box-shadow:0 0 10px rgba(68,255,136,0.4); }
-
 #boss-bar-wrap { position:absolute; top:calc(90px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); width:min(500px,80vw); display:none; }
 #boss-bar-wrap.active { display:block; }
 #boss-name { font-size:12px; letter-spacing:3px; color:#ff4444; text-align:center; margin-bottom:4px; text-transform:uppercase; text-shadow:0 0 10px rgba(255,0,0,0.8); }
@@ -86,8 +80,7 @@ canvas { display:block; touch-action:none; }
 #mobile-buttons.active { display:block; }
 .mob-btn { position:absolute; width:70px; height:70px; border-radius:50%; background:rgba(255,255,255,0.15); border:2px solid rgba(255,255,255,0.35); color:#fff; font-size:14px; display:flex; align-items:center; justify-content:center; pointer-events:auto; font-family:inherit; letter-spacing:1px; text-transform:uppercase; touch-action:none; }
 .mob-btn:active { background:rgba(255,255,255,0.35); }
-#btn-dash { bottom:calc(260px + env(safe-area-inset-bottom)); right:calc(20px + env(safe-area-inset-right)); background:rgba(68,200,255,0.2); }
-#btn-grenade { bottom:calc(180px + env(safe-area-inset-bottom)); right:calc(105px + env(safe-area-inset-right)); background:rgba(255,120,68,0.2); }
+/* فقط دکمهٔ Reload روی موبایل باقی می‌ماند */
 #btn-reload { bottom:calc(180px + env(safe-area-inset-bottom)); right:calc(20px + env(safe-area-inset-right)); }
 
 .screen { position:fixed; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; background:rgba(15,10,25,0.96); z-index:100; padding:24px; overflow-y:auto; text-align:center; }
@@ -160,10 +153,7 @@ canvas { display:block; touch-action:none; }
     <div id="health-bar-bg"><div id="health-bar"></div></div>
   </div>
 
-  <div id="ability-bar">
-    <div class="ability ready" id="ab-dash"><div class="cd-fill" id="dash-cd-fill"></div>💨</div>
-    <div class="ability ready" id="ab-grenade"><div class="cd-fill" id="grenade-cd-fill"></div>💣<span class="count" id="grenade-count">2</span></div>
-  </div>
+  <!-- ❌ ability-bar (بمب و دش) حذف شد -->
 
   <div id="ammo-display">
     <div id="weapon-name">M1911 PISTOL</div>
@@ -207,10 +197,10 @@ canvas { display:block; touch-action:none; }
 <div id="touch-controls">
   <div class="joystick" id="move-joy"><div class="knob"></div></div>
 </div>
+
+<!-- ❌ فقط دکمهٔ Reload باقی مانده -->
 <div id="mobile-buttons">
   <button class="mob-btn" id="btn-reload">R</button>
-  <button class="mob-btn" id="btn-grenade">💣</button>
-  <button class="mob-btn" id="btn-dash">💨</button>
 </div>
 
 <div id="start-screen" class="screen">
